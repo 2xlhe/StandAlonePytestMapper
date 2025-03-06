@@ -1,0 +1,61 @@
+============================= test session starts ==============================
+created: 2/2 workers
+2 workers [5 items]
+
+scheduling tests via LoadScheduling
+
+cold_storage_test.py::test_boto_upload_object_with_cold_storage_class 
+cold_storage_test.py::test_boto_object_with_custom_metadata_acls_and_storage_class 
+[gw1] [ 20%] PASSED cold_storage_test.py::test_boto_object_with_custom_metadata_acls_and_storage_class 
+[gw0] [ 40%] PASSED cold_storage_test.py::test_boto_upload_object_with_cold_storage_class 
+cold_storage_test.py::test_boto_list_objects_with_cold_storage_class 
+cold_storage_test.py::test_boto_change_object_class_to_cold_storage 
+[gw0] [ 60%] PASSED cold_storage_test.py::test_boto_change_object_class_to_cold_storage 
+[gw1] [ 80%] FAILED cold_storage_test.py::test_boto_list_objects_with_cold_storage_class 
+cold_storage_test.py::test_boto_multipart_upload_with_cold_storage_class 
+[gw1] [100%] PASSED cold_storage_test.py::test_boto_multipart_upload_with_cold_storage_class 
+
+=================================== FAILURES ===================================
+/__w/s3-specs/s3-specs/docs/cold_storage_test.py:186: AssertionError: Expected GACIER_IR or COLD_INSTANT as Storage Class
+=========================================== fixture duration top ============================================
+total          name                                                         num avg            min           
+0:00:06.080637                                         existing_bucket_name   3 0:00:02.284415 0:00:01.401248
+0:00:05.003356                                       bucket_with_one_object   2 0:00:02.501678 0:00:01.976030
+0:00:01.084236                    bucket_with_one_storage_class_cold_object   1 0:00:01.084236 0:00:01.084236
+0:00:00.380248                                                    s3_client   5 0:00:00.079961 0:00:00.067129
+0:00:00.008113                                                  test_params   5 0:00:00.001401 0:00:00.001355
+0:00:12.557883                                                  grand total  22 0:00:00.079961 0:00:00.000021
+========================================== test call duration top ===========================================
+total          name                                                         num avg            min           
+0:00:07.542592           test_boto_multipart_upload_with_cold_storage_class   1 0:00:07.542592 0:00:07.542592
+0:00:00.949580 test_boto_object_with_custom_metadata_acls_and_storage_class   1 0:00:00.949580 0:00:00.949580
+0:00:00.784909                test_boto_change_object_class_to_cold_storage   1 0:00:00.784909 0:00:00.784909
+0:00:00.686566              test_boto_upload_object_with_cold_storage_class   1 0:00:00.686566 0:00:00.686566
+0:00:00.230496               test_boto_list_objects_with_cold_storage_class   1 0:00:00.230496 0:00:00.230496
+0:00:10.194142                                                  grand total   5 0:00:00.784909 0:00:00.230496
+========================================== test setup duration top ==========================================
+total          name                                                         num avg            min           
+0:00:04.195515               test_boto_list_objects_with_cold_storage_class   1 0:00:04.195515 0:00:04.195515
+0:00:02.477661              test_boto_upload_object_with_cold_storage_class   1 0:00:02.477661 0:00:02.477661
+0:00:02.354639           test_boto_multipart_upload_with_cold_storage_class   1 0:00:02.354639 0:00:02.354639
+0:00:02.048775                test_boto_change_object_class_to_cold_storage   1 0:00:02.048775 0:00:02.048775
+0:00:01.483845 test_boto_object_with_custom_metadata_acls_and_storage_class   1 0:00:01.483845 0:00:01.483845
+0:00:12.560437                                                  grand total   5 0:00:02.354639 0:00:01.483845
+======================================== test teardown duration top =========================================
+total          name                                                         num avg            min           
+0:00:02.164003 test_boto_object_with_custom_metadata_acls_and_storage_class   1 0:00:02.164003 0:00:02.164003
+0:00:02.092435           test_boto_multipart_upload_with_cold_storage_class   1 0:00:02.092435 0:00:02.092435
+0:00:01.868759               test_boto_list_objects_with_cold_storage_class   1 0:00:01.868759 0:00:01.868759
+0:00:01.851887              test_boto_upload_object_with_cold_storage_class   1 0:00:01.851887 0:00:01.851887
+0:00:01.333745                test_boto_change_object_class_to_cold_storage   1 0:00:01.333745 0:00:01.333745
+0:00:09.310829                                                  grand total   5 0:00:01.868759 0:00:01.333745
+=========================== short test summary info ============================
+FAILED cold_storage_test.py::test_boto_list_objects_with_cold_storage_class - AssertionError: Expected GACIER_IR or COLD_INSTANT as Storage Class
+assert ('STANDARD' == 'COLD_INSTANT'
+  
+  - COLD_INSTANT
+  + STANDARD or 'STANDARD' == 'GLACIER_IR'
+  
+  - GLACIER_IR
+  + STANDARD)
+========================= 1 failed, 4 passed in 24.17s =========================

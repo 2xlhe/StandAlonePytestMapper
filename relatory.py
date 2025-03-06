@@ -9,139 +9,26 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import plotly.express as px
-import tempfile
-
-class PdfDataPlotter:
-    def __init__(self, status_df, time_data_df, failures_df):
-        self.status_df = status_df
-        self.time_data_df = time_data_df
-        self.failures_df = failures_df
-
-        self.category_status_df = self.status_df[['category', 'status']]
-
-
-    def error_distribution_pie_chart(self):
-        error_distribution_df = self.status_df
-
-        # Filter for FAILED status
-        failed_df = error_distribution_df[error_distribution_df['status'] == 'FAILED']
-
-        # Group by category and count the number of FAILED statuses
-        failed_counts = failed_df.groupby('category').size().reset_index(name='count')
-
-        # Create the pie chart
-        fig = px.pie(
-            failed_counts, 
-            names="category",  # Use 'category' for pie slice labels
-            values="count",    # Use 'count' for pie slice sizes
-            title="Distribuição de falhas por categoria",
-            color_discrete_sequence=px.colors.sequential.RdBu,
-        )
-
-        fig.update_layout(
-        #   width=400,  # Set the width of the plot (in pixels)
-        #  height=400,  # Set the height of the plot (in pixels)
-            margin=dict(l=20, r=20, t=40, b=20)  # Adjust margins if needed
-        )
-
-        # Make the pie chart circle bigger by adjusting the marker size
-        fig.update_traces(
-            marker=dict(line=dict(color='white', width=2)),  # Optional: Add a white border
-            textposition='inside',  # Display text inside the slices
-            textinfo='percent+label'  # Show percentage and label
-        )
-
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
-            fig.write_image(tmpfile.name, format="png", width=800, height=400)
-            return tmpfile.name
-    
-    def plot_category_errors_bar(self):
-        # Calculate the frequency of errors per category
-        error_freq_df = self.failures_df.groupby(['category', 'error']).size().reset_index(name='frequency')
-
-        # Create the bar plot
-        fig = px.bar(
-            error_freq_df, 
-            x="category", 
-            y="frequency", 
-            color="error",  # Use a discrete color sequence
-            color_discrete_sequence=px.colors.sequential.RdBu,
-            title="Frequência de tipos de erros por categoria",
-            labels={'frequency': 'Frequency of Errors', 'category': 'Category'},
-        )
-
-        # Adjust layout to control bar width
-        fig.update_layout(
-            xaxis_title="Category",
-            yaxis_title="Frequency of Errors",
-            barmode='stack',  
-            bargroupgap=0.1,  
-            width=600,
-            margin=dict(l=20, r=20, t=40, b=20)  
-        )
-
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
-            fig.write_image(tmpfile.name, format="png", width=800, height=400)
-            return tmpfile.name
-
-    def categories_failures_passed_rate(self):
-        # Group by status and category, then calculate value counts
-        total_category = self.category_status_df.groupby(['status', 'category']).value_counts()
-
-        # Create a DataFrame for FAILED and PASSED counts, filling missing values with 0
-        status_freq_df = pd.DataFrame([total_category.FAILED, total_category.PASSED]).fillna(0).astype(int).T
-        status_freq_df.columns = ['FAILED', 'PASSED']
-        status_freq_df = status_freq_df.reset_index()
-
-        # Calculate total, passed percentage, and failed percentage
-        status_freq_df['TOTAL'] = status_freq_df['PASSED'] + status_freq_df['FAILED']
-        status_freq_df['PASSED_PCT'] = (status_freq_df['PASSED'] / status_freq_df['TOTAL']) * 100
-        status_freq_df['FAILED_PCT'] = (status_freq_df['FAILED'] / status_freq_df['TOTAL']) * 100
-
-        # Transform the DataFrame from wide to long format for plotting
-        status_freq_long = status_freq_df.melt(
-            id_vars=['category'], 
-            value_vars=['PASSED_PCT', 'FAILED_PCT'], 
-            var_name='Status', 
-            value_name='Percentage'
-        )
-
-        # Add real values for display in the plot
-        status_freq_long['Real Value'] = status_freq_long.apply(
-            lambda row: status_freq_df.loc[status_freq_df['category'] == row['category'], row['Status'].replace('_PCT', '')].values[0], 
-            axis=1
-        )
-
-        # Create a stacked bar plot
-        fig = px.bar(
-            status_freq_long.round(2), 
-            x="category", 
-            y="Percentage", 
-            color="Status", 
-            barmode='stack', 
-            title="Proporção de testes Aprovados/Falho",
-            labels={'Percentage': 'Percentage'},
-            text=status_freq_long["Real Value"]  # Display real values on bars
-        )
-
-        # Adjust layout to display values inside bars
-        fig.update_traces(texttemplate='%{text}', textposition='inside')
-        fig.update_yaxes(title='Porcentagem')
-        fig.update_xaxes(title='Categoria')
-
-        # Save the plot to a temporary file
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
-            fig.write_image(tmpfile.name, format="png", width=800, height=400)
-            return tmpfile.name
+from dataPlotter import DataPlotter
 
 class PdfMaker:
-    def __init__(self, status_df, time_data_df, failures_df):
-        self.status_df = status_df
-        self.time_data_df = time_data_df
-        self.failures_df = failures_df
-        self.metrics_df = self.__create_df__()
-        self.plotter = PdfDataPlotter(status_df=status_df, time_data_df=time_data_df, failures_df=failures_df)
+    def __init__(self, test_data):
         
+        self.execution_entity = test_data.execution_entity
+        self.tests = test_data.tests
+        self.execution_time = test_data.execution_time
+        self.failures = test_data.failures
+        #self.artifact_info = test_data_base.artifact_info
+        self.plotter = DataPlotter(test_data)
+
+        # Ensure types are correct
+        assert isinstance(self.execution_entity, pd.DataFrame), "Execution Entity must be a df"
+        assert isinstance(self.tests, pd.DataFrame), "Tests must be a df"
+        assert isinstance(self.execution_time, pd.DataFrame), "Execution Time must be a df"
+        assert isinstance(self.failures, pd.DataFrame), "Failures must be a df"
+        #assert isinstance(self.artifact_info, pd.DataFrame), "Artifact Info must be a df"
+
+
         styles = getSampleStyleSheet()
         self.styles = {
             'heading1': styles['Heading1'],
@@ -161,36 +48,11 @@ class PdfMaker:
             'margin': 0.1 * A4[0],  # Use A4[0] directly to avoid circular dependency
         }
 
-    def __get_time__(self, metric):
+    def __get_time__(self, merged_rows, metric):
         # Create a dict of the total time of each category summing each test time it contains
-        time = pd.Series(dict(map(lambda t, x: (x, self.time_data_df.loc[self.time_data_df.index == t, metric].sum()), self.status_df.index.unique(), self.status_df.category.unique())))
+        time = pd.Series(dict(map(lambda t, x: (x, merged_rows.loc[merged_rows['Execution_name'] == t, metric].sum()), self.tests['Name'].unique(), self.tests['Name'].unique())))
     
         return time
-
-    def __create_df__(self):
-        # Creating a Df containing Number of Each Status in each test
-        status_count_df = self.status_df.groupby(by=['category','status']).size().unstack('status')
-        status_count_df['total'] = status_count_df.sum(axis=1)
-        # Formatting data 
-        status_count_df = status_count_df.fillna(0).astype(int)
-
-        # Get a dict containing 'category': 'time_info'
-        total_times = self.__get_time__('total')
-        avg_time_test = self.__get_time__('avg')
-        min_test_time  = self.__get_time__('min')
-
-        time_count_df = pd.concat([status_count_df['PASSED'], 
-                                   status_count_df['FAILED'], 
-                                   status_count_df['total'], 
-                                   min_test_time, 
-                                   avg_time_test, 
-                                   total_times], axis=1)
-        
-        time_count_df.columns = ['num_passed', 'num_failed', 'total_runs', 'min_test_time', 'avg_test_time', 'total_duration']
-        time_count_df['avg_test_time'] = (time_count_df['avg_test_time'] / time_count_df['total_runs']).round(2) 
-
-        report_df = pd.DataFrame({'name': self.status_df['category'].unique()}).set_index('name')
-        return  pd.concat([report_df, time_count_df], axis=1).reset_index().drop_duplicates().round(2)
     
     def create_pdf(self):
 
@@ -203,8 +65,6 @@ class PdfMaker:
 
         # Add title with fields
         story.extend(self.create_title())
-
-        # Add each section to the story
         story.extend(self.create_execution_summary())
         story.extend(self.create_detailed_results())
         story.extend(self.create_errors_summary())
@@ -218,7 +78,7 @@ class PdfMaker:
         story = []
 
         # Get current date and time
-        agora = datetime.now()
+        agora = datetime.now() 
         horario_dia = agora.strftime("%d/%m/%Y %H:%M:%S")
 
         # Create the title
@@ -230,7 +90,7 @@ class PdfMaker:
         story.append(title_paragraph)
 
         # Create the formatted text for the execution date, system version, and environment
-        execution_paragraph = Paragraph(f"Data da Execução: {horario_dia}", self.styles['normal'])
+        execution_paragraph = Paragraph(f"Data da Execução: {self.execution_entity.Execution_Datetime}", self.styles['normal'])
         version_paragraph = Paragraph("Versão do Sistema: ", self.styles['normal'])
         environment_paragraph = Paragraph("Ambiente: ", self.styles['normal'])
 
@@ -251,17 +111,17 @@ class PdfMaker:
         story.append(Paragraph("Resumo Geral", self.styles['bold']))
         story.append(Spacer(1, 6))
 
-        fail_success_rate = (self.metrics_df['num_failed'].sum() / self.metrics_df['num_passed'].sum() * 100).round(2)
+        success_rate = self.tests['Status'].value_counts('Status').get('PASSED') * 100
 
         # Criando a lista de resumo corretamente
         summary_data = {
-            'Total de Testes:': self.metrics_df['total_runs'].sum(),
-            'Testes Bem-Sucedidos:': self.metrics_df['num_passed'].sum(),
-            'Testes com Falha:': self.metrics_df['num_failed'].sum(),
-            'Taxa de Sucessos/Falha:': f"{fail_success_rate}%",  # Round to 2 decimal places
-            'Tempo Mínimo de Execução:': f"{self.metrics_df['min_test_time'].min():.2f} s",
-            'Tempo Médio de Execução:': f"{self.metrics_df['avg_test_time'].mean():.2f} s",
-            'Duração Total dos Testes:': f"{self.metrics_df['total_duration'].sum():.2f} s"
+            'Total de Testes:': self.tests.index.size,
+            'Testes Bem-Sucedidos:': self.tests['Status'].value_counts().get('PASSED', 0),
+            'Testes com Falha:': self.tests['Status'].value_counts().get('PASSED', 0),
+            'Taxa de Sucessos/Falha:': f"{success_rate}%",  # Round to 2 decimal places
+            #'Tempo Mínimo de Execução:': f"{self.metrics_df['min_test_time'].min():.2f} s",
+            #'Tempo Médio de Execução:': f"{self.metrics_df['avg_test_time'].mean():.2f} s",
+            #'Duração Total dos Testes:': f"{self.metrics_df['total_duration'].sum():.2f} s"
         }
 
         # Criando a lista com bullet points
@@ -283,27 +143,35 @@ class PdfMaker:
         story = []
         story.append(Paragraph("Detalhamento dos Testes", self.styles['bold']))
         story.append(Spacer(1, 12))
-        df_renamed = self.metrics_df.copy() 
-        df_renamed.columns = [
-            'Categoria de Teste', 
-            'Testes Bem-Sucedidos', 
-            'Falhas', 
-            'Execuções', 
-            'Tempo Mínimo de Execução', 
-            'Tempo Médio', 
-            'Duração Total'
-        ]
+        
+        # Number of passed and failed tests by Test_Name and Category
+        passed_tests_df = self.tests.copy().groupby(['Name', 'Status']).size().unstack().fillna(0).astype(int)
+        passed_tests_df.columns = ['Falhas', 'Acertos']
 
+        # Retrieve the tests with their times_metrics
+        time_metric_df = pd.merge(
+                self.execution_time,
+                self.tests[['Name', 'Execution_Datetime']],
+                left_on=['Execution_name', 'Execution_Datetime'],
+                right_on=['Name', 'Execution_Datetime'],
+                how='inner'
+        )
+        
+        avg_time = self.__get_time__(time_metric_df, 'Avg_Time')
+        min_time = self.__get_time__(time_metric_df, 'Min_Time')
+        total_time = self.__get_time__(time_metric_df, 'Total_Time')
 
-        df_renamed = df_renamed.drop(columns=['Tempo Mínimo de Execução'])
+        time_df = pd.DataFrame([avg_time,min_time,total_time]).T.reset_index()
+        time_df.columns = ['Teste','Tempo médio', 'Tempo Mínimo', 'Tempo Total']
+        
+        time_metric_df = pd.merge(time_df,passed_tests_df,right_on=['Name'],left_on=['Teste'], how='inner')
+        time_metric_df['Número de Testagens'] = time_metric_df['Falhas'] + time_metric_df['Acertos']
 
-        df_renamed['Tempo Médio'] = df_renamed['Tempo Médio'].astype(str) + ' sec'
-        df_renamed['Duração Total'] = df_renamed['Duração Total'].astype(str) + ' sec'
 
         # Prepare the detailed data for the table
-        detailed_tests_data = [[Paragraph(str(value), self.styles['normal']) for value in df_renamed.columns.tolist()]]  # Add header
+        detailed_tests_data = [[Paragraph(str(value), self.styles['normal']) for value in time_metric_df.columns.tolist()]]  # Add header
         detailed_tests_data.extend(
-            [[Paragraph(str(value), self.styles['normal']) for value in row] for row in df_renamed.values.tolist()]
+            [[Paragraph(str(value), self.styles['normal']) for value in row] for row in time_metric_df.values.tolist()]
         )
 
         # Calculate available width after applying margins
@@ -344,22 +212,24 @@ class PdfMaker:
         story.append(Spacer(1, 12))
 
         # Create a copy of the DataFrame and reset the index
-        df_copy = self.failures_df.copy().reset_index()
-        df_copy.columns = [
-            'Nome',
-            'Status', # Remove
-            'Categoria do Teste',
-            'Tipo de erro',
-            'Detalhes do erro (100 caracteres)',
-            'JobId', # Remove
+        categories_df = self.failures.merge(self.tests, 
+                                how='inner', 
+                                right_on=['Name', 'Execution_Datetime'], 
+                                left_on=['Test_Name', 'Execution_Datetime'])
+        
+        categories_df = categories_df[['Test_Name', 'Category', 'Error', 'Details', 'Execution_Datetime']]
+        categories_df.columns = [
+            'Nome do teste',
+            'Categoria',
+            'Error',
+            'Detalhes do erro',
+            'Momento de execução',
         ]
 
-        df_copy = df_copy.drop('Detalhes do erro (100 caracteres)', axis=1)
-
         # Prepare the detailed data for the table
-        detailed_tests_data = [[Paragraph(str(value), self.styles['normal']) for value in df_copy.columns.tolist()]] 
+        detailed_tests_data = [[Paragraph(str(value), self.styles['normal']) for value in categories_df.columns.tolist()]] 
         detailed_tests_data.extend(
-            [[Paragraph(str(value), self.styles['normal']) for value in row] for row in df_copy.values.tolist()]
+            [[Paragraph(str(value), self.styles['normal']) for value in row] for row in categories_df.values.tolist()]
         )
 
         # Calculate available width after applying margins
@@ -385,7 +255,7 @@ class PdfMaker:
         img_width = 500
         img_height = 250
 
-        graph_files = {'error_distribution_pie':self.plotter.error_distribution_pie_chart(), 
+        graph_files = {'error_distribution_pie':self.plotter.test_name_error_distribution_pie_chart(), 
                        'category_errors_bar': self.plotter.plot_category_errors_bar(),
                        'failures_passed_rate': self.plotter.categories_failures_passed_rate(),
                        }

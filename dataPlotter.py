@@ -1,23 +1,20 @@
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 import plotly.express as px
 
-from datetime import datetime
 import tempfile
 
 
 class DataPlotter:
     def __init__(self, test_data_base: type):
         self.execution_entity = test_data_base.execution_entity
-        self.artifact_info = test_data_base.artifact_info
+        #self.artifact_info = test_data_base.artifact_info
         self.tests = test_data_base.tests
         self.execution_time = test_data_base.execution_time
         self.failures = test_data_base.failures
 
         # Ensure types are correct
         assert isinstance(self.execution_entity, pd.DataFrame), "Execution Entity must be a df"
-        assert isinstance(self.artifact_info, pd.DataFrame), "Artifact Info must be a df"
+        #assert isinstance(self.artifact_info, pd.DataFrame), "Artifact Info must be a df"
         assert isinstance(self.tests, pd.DataFrame), "Tests must be a df"
         assert isinstance(self.execution_time, pd.DataFrame), "Execution Time must be a df"
         assert isinstance(self.failures, pd.DataFrame), "Failures must be a df"
@@ -50,24 +47,29 @@ class DataPlotter:
             textposition='inside',  # Display text inside the slices
             textinfo='percent+label'  # Show percentage and label
         )
-        fig.show()
+        
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+            fig.write_image(tmpfile.name, format="png", width=800, height=400)
+            return tmpfile.name
 
     def plot_category_errors_bar(self):
         failures_df = self.failures.copy()
-        # Chart needs only Test_Names and their frequency
-        test_num_failures = failures_df.Test_Name.value_counts().to_dict()
 
-        # PK = Test_Name:Name, Execution_DateTime
+        # PK = Test_Name:Name, Execution_Datetime -
         categories_df = failures_df.merge(self.tests, 
                                 how='inner', 
-                                right_on=['Name', 'Execution_DateTime'], 
-                                left_on=['Test_Name', 'Execution_DateTime'])
+                                right_on=['Name', 'Execution_Datetime'], 
+                                left_on=['Test_Name', 'Execution_Datetime'])
 
         # Creating a df With categories as each error
         categories_df = categories_df.groupby(by=['Category','Error']).size().unstack('Error').fillna(0).astype(int)
 
         # Plot the data
-        fig = px.bar(categories_df, x=categories_df.index, y=categories_df.columns, barmode='stack', color_discrete_sequence=px.colors.sequential.RdBu)
+        fig = px.bar(categories_df, 
+                     x=categories_df.index, 
+                     y=categories_df.columns, 
+                     barmode='stack', 
+                     color_discrete_sequence=px.colors.sequential.RdBu)
 
         # Customize the plot
         fig.update_layout(
@@ -77,11 +79,14 @@ class DataPlotter:
         )
 
         # Show the plot
-        fig.show()
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+            fig.write_image(tmpfile.name, format="png", width=800, height=400)
+            return tmpfile.name
 
     def categories_failures_passed_rate(self):
         # Group by status and category, then calculate value counts
-        total_category = pd.DataFrame(self.tests).groupby(['Status', 'Category']).size().unstack().fillna(0).astype(int)
+        total_category = self.tests.groupby(['Category', 'Status']).size().unstack(fill_value=0).astype(int)
+        display(total_category)
 
         # Calculate total tests per category
         total_category['TOTAL'] = total_category.sum(axis=1)
@@ -89,7 +94,7 @@ class DataPlotter:
         # Calculate percentage for each status
         for status in total_category.columns:
             if status != 'TOTAL':
-                total_category[f'{status}_PCT'] = (total_category[status] / total_category['TOTAL']) * 100
+                total_category[f'{status}_PCT'] = (total_category[status] / total_category['TOTAL']) * 50
 
         # Prepare data for plotting
         plot_data = []
@@ -114,13 +119,16 @@ class DataPlotter:
             barmode='stack', 
             title="Proporção de testes por status",
             labels={'Percentage': 'Porcentagem'},
-            text=plot_df["Real Value"].round(0).astype(int)  # Display real values on bars
+            text=plot_df["Real Value"].round(0).astype(int),   # Display real values on bars
+            color_discrete_sequence=px.colors.qualitative.G10,
         )
 
         # Adjust layout to display values inside bars
         fig.update_traces(texttemplate='%{text}', textposition='inside')
-        fig.update_yaxes(title='Porcentagem')
+        fig.update_yaxes(title='Porcentagem (%)')
         fig.update_xaxes(title='Categoria')
 
         # Display the plot
-        fig.show()
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
+            fig.write_image(tmpfile.name, format="png", width=800, height=400)
+            return tmpfile.name
