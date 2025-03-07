@@ -22,38 +22,65 @@ class DataPlotter:
     def test_name_error_distribution_pie_chart(self):
         failures_df = self.failures
 
-        # Chart needs only Test_Names and their frequency
-        test_num_failures = failures_df.Test_Name.value_counts().to_dict()
+        # Check if failures_df is empty
+        if failures_df.empty:
+            # Create a placeholder plot with a message
+            fig = px.pie(
+                names=["No errors or failures"], 
+                values=[1], 
+                title="Distribuição de falhas por teste",
+                color_discrete_sequence=['lightgray']  # Use a neutral color
+            )
+            fig.update_traces(
+                textinfo='none',  # Hide text inside the pie
+                hoverinfo='none'  # Disable hover info
+            )
+            fig.update_layout(
+                annotations=[dict(
+                    text="No errors or failures", 
+                    x=0.5, 
+                    y=0.5, 
+                    font_size=20, 
+                    showarrow=False
+                )],
+                margin=dict(l=20, r=20, t=40, b=20)  # Adjust margins
+            )
+        else:
+            # Chart needs only Test_Names and their frequency
+            test_num_failures = failures_df.Test_Name.value_counts().to_dict()
+            
+            # Get names and values
+            names = list(test_num_failures.keys())
+            values = list(test_num_failures.values())
+
+            # Create the pie chart
+            fig = px.pie(
+                names=names, 
+                values=values, 
+                title="Distribuição de falhas por teste",
+                color_discrete_sequence=px.colors.sequential.RdBu,
+            )
+
+            fig.update_layout(
+                margin=dict(l=20, r=20, t=40, b=20)  # Adjust margins if needed
+            )
+
+            # Make the pie chart circle bigger by adjusting the marker size
+            fig.update_traces(
+                marker=dict(line=dict(color='white', width=2)),  # Optional: Add a white border
+                textposition='inside',  # Display text inside the slices
+                textinfo='percent+label'  # Show percentage and label
+            )
         
-        # Get names and values
-        names = list(test_num_failures.keys())
-        values = list(test_num_failures.values())
-
-        # Create the pie chart
-        fig = px.pie(
-            names=names, 
-            values=values, 
-            title="Distribuição de falhas por teste",
-            color_discrete_sequence=px.colors.sequential.RdBu,
-        )
-
-        fig.update_layout(
-            margin=dict(l=20, r=20, t=40, b=20)  # Adjust margins if needed
-        )
-
-        # Make the pie chart circle bigger by adjusting the marker size
-        fig.update_traces(
-            marker=dict(line=dict(color='white', width=2)),  # Optional: Add a white border
-            textposition='inside',  # Display text inside the slices
-            textinfo='percent+label'  # Show percentage and label
-        )
-        
+        # Save the figure to a temporary file
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
             fig.write_image(tmpfile.name, format="png", width=800, height=400)
             return tmpfile.name
-
+        
     def plot_category_errors_bar(self):
         failures_df = self.failures.copy()
+
+        print(failures_df)
 
         # PK = Test_Name:Name, Execution_Datetime -
         categories_df = failures_df.merge(self.tests, 
@@ -61,8 +88,11 @@ class DataPlotter:
                                 right_on=['Name', 'Execution_Datetime'], 
                                 left_on=['Test_Name', 'Execution_Datetime'])
 
+        print(categories_df)
         # Creating a df With categories as each error
-        categories_df = categories_df.groupby(by=['Category','Error']).size().unstack('Error').fillna(0).astype(int)
+        categories_df = categories_df.groupby(by=['Category','Error',]).size().unstack('Error').fillna(0).astype(int)
+
+        print(categories_df)
 
         # Plot the data
         fig = px.bar(categories_df, 

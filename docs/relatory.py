@@ -69,7 +69,8 @@ class PdfMaker:
         story.extend(self.create_title())
         story.extend(self.create_execution_summary())
         story.extend(self.create_detailed_results())
-        story.extend(self.create_errors_summary())
+        if not self.failures.empty:
+            story.extend(self.create_errors_summary())
         story.extend(self.create_graphs())
 
         # Build PDF
@@ -118,9 +119,9 @@ class PdfMaker:
         summary_data = {
             'Total de Testes:': self.tests.index.size,
             'Testes Bem-Sucedidos:': self.tests['Status'].value_counts().get('PASSED', 0),
-            'Testes com Falha:': self.tests['Status'].value_counts().get('PASSED', 0),
+            'Testes com Falha:': self.tests['Status'].value_counts().get('FAILED', 0),
             'Testes com Erros:': self.tests['Status'].value_counts().get('ERROR', 0),
-            'Taxa de Sucessos/Falha:': f"{success_rate}%",  # Round to 2 decimal places
+            'Taxa de Sucessos/Falha:': f"{success_rate.round(2)}%",  # Round to 2 decimal places
         }
 
         # Criando a lista com bullet points
@@ -245,7 +246,7 @@ class PdfMaker:
 
         # Prepare the detailed data for the table
         detailed_tests_data = [
-            [Paragraph(str(value), self.styles['bold']) for value in categories_df.columns.tolist()]
+            [Paragraph(str(value), self.styles['normal']) for value in categories_df.columns.tolist()]
         ]  # Add header
 
         detailed_tests_data.extend(

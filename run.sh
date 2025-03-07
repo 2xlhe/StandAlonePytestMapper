@@ -99,7 +99,6 @@ if [ $? -eq 0 ]; then
     echo "Pytest execution completed successfully."
 else
     echo "Pytest execution failed. Check the log file: $OUTPUT_FILE"
-    exit 1
 fi
 
 # Generate report (add your report generation logic here)
