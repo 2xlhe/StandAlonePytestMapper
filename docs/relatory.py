@@ -34,7 +34,12 @@ class PdfMaker:
                 parent=styles['Normal'],
                 fontName="Helvetica-Bold",
                 fontSize=12
-            )
+            ),
+            'note': ParagraphStyle(
+                name="note",
+                parent=styles['Normal'],
+                fontSize=8
+            ),
         }
 
         # Define dimensions
@@ -271,6 +276,9 @@ class PdfMaker:
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ]))
         story.append(detailed_table)
+        story.append(Spacer(1, 12))
+
+        story.append(Paragraph("Nota: Caso hajam linhas repetidas, significa que um teste executado mais de uma vez apresentou o mesmo erro.", self.styles['note']))
         story.append(Spacer(1, 24))
 
         return story

@@ -6,6 +6,6 @@ Use steps:
 1. Download Pytest
 2. Have a folder with a pytest file
 3. Create a yaml config file with endpoint
-4. execute ./run.sh [-o OUTPUT_FILE] <Test_Category> <Path_Config> <Root_Folder>
+4. execute ./run.sh [-o OUTPUT_FILE] <Test_Category> <Path_Config> <Tests_Root_Folder>
 
 Note: It is not recommended to use VPN while testing

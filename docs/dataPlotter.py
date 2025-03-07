@@ -80,19 +80,14 @@ class DataPlotter:
     def plot_category_errors_bar(self):
         failures_df = self.failures.copy()
 
-        print(failures_df)
-
         # PK = Test_Name:Name, Execution_Datetime -
         categories_df = failures_df.merge(self.tests, 
                                 how='inner', 
                                 right_on=['Name', 'Execution_Datetime'], 
-                                left_on=['Test_Name', 'Execution_Datetime'])
+                                left_on=['Test_Name', 'Execution_Datetime']).drop_duplicates()
 
-        print(categories_df)
         # Creating a df With categories as each error
         categories_df = categories_df.groupby(by=['Category','Error',]).size().unstack('Error').fillna(0).astype(int)
-
-        print(categories_df)
 
         # Plot the data
         fig = px.bar(categories_df, 

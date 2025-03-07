@@ -1,5 +1,4 @@
 from relatory import PdfMaker
-import pandas as pd
 from logDataclasses import TestData
 from logExtractor import PytestArtifactLogExtractor
 import argparse

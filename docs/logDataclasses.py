@@ -65,8 +65,6 @@ class TestData:
         self.execution_time = pd.DataFrame(asdict(execution_time))
         self.failures = pd.DataFrame(asdict(failures))
 
-        print(type(self.execution_entity))
-
     def load_existent(self) -> list[pd.DataFrame]:
         """Load data from Parquet files for each attribute."""
         attributes = vars(self)  # Get instance attributes as a dictionary
