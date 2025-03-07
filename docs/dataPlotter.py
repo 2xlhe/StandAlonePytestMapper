@@ -86,7 +86,6 @@ class DataPlotter:
     def categories_failures_passed_rate(self):
         # Group by status and category, then calculate value counts
         total_category = self.tests.groupby(['Category', 'Status']).size().unstack(fill_value=0).astype(int)
-        display(total_category)
 
         # Calculate total tests per category
         total_category['TOTAL'] = total_category.sum(axis=1)

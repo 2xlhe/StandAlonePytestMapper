@@ -55,7 +55,6 @@ class PytestArtifactLogExtractor:
         
         return execution_entity, artifact, tests, execution_time, failures
      
-
     def __get_list_by_name__(self, data: list, name: str):
         """
         Find the sublist containing the specified name in the first element.
@@ -109,12 +108,13 @@ class PytestArtifactLogExtractor:
         tests = [Tests(Artifact_Name=artifact.Name, 
                         Execution_Datetime=execution_entity.Execution_Datetime,
                         Status=t[0].strip(), 
-                        Category=t[1].strip(), 
+                        Category=t[1].split("/")[-1].strip().replace('.py', ''), # Formatting for readability
                         Name=t[2].strip(), 
                         Arguments=t[3] if t[3] else None)  for t in headers]
 
         # Execution_time
         timestamps = self.__create_time_df__(self.__extract_time_categories__(self.__get_list_by_name__(header, 'duration top')))
+
         execution_time = ExecutionTime( Execution_Datetime=execution_entity.Execution_Datetime,
                                         Execution_name=timestamps['name'], 
                                         Execution_type=timestamps['durationType'],

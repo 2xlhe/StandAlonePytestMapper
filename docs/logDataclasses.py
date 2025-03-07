@@ -49,18 +49,28 @@ class Failures:
     Error: str
     Details: Optional[str]  # Retrieved pytest error description
 
-@dataclass
-class TestData:
-    execution_entity: list[ExecutionEntity]
-    artifact: list[Artifact]
-    artifact_info: list[ArtifactInfo]
-    tests: list[Tests]
-    execution_time: list[ExecutionTime]
-    failures: list[Failures]
 
-    def load_existent(self) -> pd.DataFrame:
-        attributes = get_fields(self)
-        return [am.read_parquet_file(parquet_file_name=attributes) for atb in attributes]
+class TestData:
+    def __init__(self,
+        execution_entity: list[ExecutionEntity],
+        artifact: list[Artifact],
+        #artifact_info: list[ArtifactInfo],
+        tests: list[Tests],
+        execution_time: list[ExecutionTime],
+        failures: list[Failures]
+    ):
+        self.execution_entity = pd.DataFrame([asdict(execution_entity)])
+        self.artifact =pd.DataFrame([asdict(artifact)])
+        self.tests = pd.DataFrame(list(map(lambda t: asdict(t), tests)))
+        self.execution_time = pd.DataFrame(asdict(execution_time))
+        self.failures = pd.DataFrame(asdict(failures))
+
+        print(type(self.execution_entity))
+
+    def load_existent(self) -> list[pd.DataFrame]:
+        """Load data from Parquet files for each attribute."""
+        attributes = vars(self)  # Get instance attributes as a dictionary
+        return [self.read_parquet_file(parquet_file_name=atb) for atb in attributes]
 
 
 def get_fields(Dataclass: type) -> list[str]:

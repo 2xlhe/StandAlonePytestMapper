@@ -3,12 +3,8 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, Spacer, ListFlowable, ListItem, Spacer, Image
-from datetime import datetime
 
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import plotly.express as px
 from dataPlotter import DataPlotter
 
 class PdfMaker:
@@ -57,8 +53,14 @@ class PdfMaker:
     def create_pdf(self):
 
         # Create PDF with margins
-        doc = SimpleDocTemplate("report_v0.pdf", pagesize=A4,
-                                leftMargin=self.dim['margin'], rightMargin=self.dim['margin'], topMargin=0.1*self.dim['height'], bottomMargin=0.1*self.dim['height'])
+        doc = SimpleDocTemplate(
+            f"report_{self.execution_entity.Endpoint.get(0)}_{self.execution_entity.Execution_Datetime.get(0).strftime('%H-%M-%S_%d-%m-%Y')}.pdf", 
+            pagesize=A4,
+            leftMargin=self.dim['margin'], 
+            rightMargin=self.dim['margin'], 
+            topMargin=0.1*self.dim['height'], 
+            bottomMargin=0.1*self.dim['height']
+            )
 
         # Create the story (content) for the PDF
         story = []
@@ -78,8 +80,7 @@ class PdfMaker:
         story = []
 
         # Get current date and time
-        agora = datetime.now() 
-        horario_dia = agora.strftime("%d/%m/%Y %H:%M:%S")
+        horario_dia = self.execution_entity.Execution_Datetime.get(0).strftime("%H:%M:%S %d/%m/%Y")
 
         # Create the title
         title_text = "Sumário de Resultados dos Testes"
@@ -90,9 +91,9 @@ class PdfMaker:
         story.append(title_paragraph)
 
         # Create the formatted text for the execution date, system version, and environment
-        execution_paragraph = Paragraph(f"Data da Execução: {self.execution_entity.Execution_Datetime}", self.styles['normal'])
+        execution_paragraph = Paragraph(f"Data da Execução: {horario_dia}", self.styles['normal'])
         version_paragraph = Paragraph("Versão do Sistema: ", self.styles['normal'])
-        environment_paragraph = Paragraph("Ambiente: ", self.styles['normal'])
+        environment_paragraph = Paragraph(f"Endpoint: {self.execution_entity.Endpoint.get(0)}", self.styles['normal'])
 
         # Add other paragraphs to the story
         story.append(execution_paragraph)
@@ -111,17 +112,15 @@ class PdfMaker:
         story.append(Paragraph("Resumo Geral", self.styles['bold']))
         story.append(Spacer(1, 6))
 
-        success_rate = self.tests['Status'].value_counts('Status').get('PASSED') * 100
+        success_rate = self.tests['Status'].value_counts('Status').get('PASSED', 0) * 100
 
         # Criando a lista de resumo corretamente
         summary_data = {
             'Total de Testes:': self.tests.index.size,
             'Testes Bem-Sucedidos:': self.tests['Status'].value_counts().get('PASSED', 0),
             'Testes com Falha:': self.tests['Status'].value_counts().get('PASSED', 0),
+            'Testes com Erros:': self.tests['Status'].value_counts().get('ERROR', 0),
             'Taxa de Sucessos/Falha:': f"{success_rate}%",  # Round to 2 decimal places
-            #'Tempo Mínimo de Execução:': f"{self.metrics_df['min_test_time'].min():.2f} s",
-            #'Tempo Médio de Execução:': f"{self.metrics_df['avg_test_time'].mean():.2f} s",
-            #'Duração Total dos Testes:': f"{self.metrics_df['total_duration'].sum():.2f} s"
         }
 
         # Criando a lista com bullet points
@@ -144,29 +143,47 @@ class PdfMaker:
         story.append(Paragraph("Detalhamento dos Testes", self.styles['bold']))
         story.append(Spacer(1, 12))
         
-        # Number of passed and failed tests by Test_Name and Category
-        passed_tests_df = self.tests.copy().groupby(['Name', 'Status']).size().unstack().fillna(0).astype(int)
-        passed_tests_df.columns = ['Falhas', 'Acertos']
+        # Number of passed, failed, and error tests by Test_Name and Category
+        status_counts = self.tests.copy().groupby(['Name', 'Status']).size().unstack(fill_value=0).astype(int)
+
+        column_mapping = {
+            'PASSED': 'Acertos',
+            'FAILED': 'Falhas',
+            'ERROR': 'Erros'
+        }
+
+        # Ensure all expected columns are present, even if no rows exist for a status
+        for status in ['PASSED', 'FAILED', 'ERROR']:
+            if status not in status_counts.columns:
+                status_counts[column_mapping[status]] = 0
+
+        # Rename columns dynamically
+        status_counts = status_counts.rename(columns=column_mapping)
+    
+        # Reorder columns for consistency
+        passed_test = status_counts[['Acertos', 'Falhas', 'Erros']]
 
         # Retrieve the tests with their times_metrics
         time_metric_df = pd.merge(
-                self.execution_time,
-                self.tests[['Name', 'Execution_Datetime']],
-                left_on=['Execution_name', 'Execution_Datetime'],
-                right_on=['Name', 'Execution_Datetime'],
-                how='inner'
+            self.execution_time,
+            self.tests[['Name', 'Execution_Datetime']],
+            left_on=['Execution_name', 'Execution_Datetime'],
+            right_on=['Name', 'Execution_Datetime'],
+            how='inner'
         )
         
-        avg_time = self.__get_time__(time_metric_df, 'Avg_Time')
-        min_time = self.__get_time__(time_metric_df, 'Min_Time')
-        total_time = self.__get_time__(time_metric_df, 'Total_Time')
+        # Retrive time values out of df
+        avg_time = self.__get_time__(time_metric_df, 'Avg_Time').round(2)
+        min_time = self.__get_time__(time_metric_df, 'Min_Time').round(2)
+        total_time = self.__get_time__(time_metric_df, 'Total_Time').round(2)
 
-        time_df = pd.DataFrame([avg_time,min_time,total_time]).T.reset_index()
-        time_df.columns = ['Teste','Tempo médio', 'Tempo Mínimo', 'Tempo Total']
+        time_df = pd.DataFrame([avg_time, min_time, total_time]).T.reset_index()
+        time_df.columns = ['Teste', 'Tempo médio', 'Tempo Mínimo', 'Tempo Total']
         
-        time_metric_df = pd.merge(time_df,passed_tests_df,right_on=['Name'],left_on=['Teste'], how='inner')
-        time_metric_df['Número de Testagens'] = time_metric_df['Falhas'] + time_metric_df['Acertos']
-
+        # Merge time metrics with status counts
+        time_metric_df = pd.merge(time_df, passed_test, left_on='Teste', right_on='Name', how='inner')
+        time_metric_df['Contagem'] = time_metric_df['Acertos'] + time_metric_df['Falhas'] + time_metric_df['Erros']
+        time_metric_df['Teste'] = time_metric_df['Teste'].str.replace('_', ' ')
 
         # Prepare the detailed data for the table
         detailed_tests_data = [[Paragraph(str(value), self.styles['normal']) for value in time_metric_df.columns.tolist()]]  # Add header
@@ -178,7 +195,7 @@ class PdfMaker:
         available_width = self.dim['width'] - 2 * self.dim['margin']  
 
         # Define column proportions
-        proportions = [0.3, 0.15, 0.15, 0.15, 0.2, 0.15] 
+        proportions = [0.3, 0.15, 0.15, 0.15, 0.12, 0.12, 0.12,0.15]  # Added proportion for 'Erros'
 
         total_proportion = sum(proportions)
         if total_proportion > 1:
@@ -189,8 +206,10 @@ class PdfMaker:
 
         # Create the table
         detailed_table = Table(detailed_tests_data, colWidths=col_widths)
-        detailed_table.setStyle(TableStyle([('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                                            ('GRID', (0, 0), (-1, -1), 0.5, colors.black)]))
+        detailed_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black)
+        ]))
         story.append(detailed_table)
         story.append(Spacer(1, 24))
 
@@ -200,41 +219,45 @@ class PdfMaker:
         """
         Creates a summary of errors in a PDF document.
 
-        :param df: DataFrame containing error data.
-        :param normal_style: Style for normal text.
-        :param bold_style: Style for bold text.
-        :param width: Width of the page.
-        :param margin: Margin size.
         :return: A list of elements to be added to the PDF.
         """
         story = []
-        story.append(Paragraph("Resumo dos Erros", self.styles['bold']))
+        story.append(Paragraph("Resumo dos Erros e Falhas", self.styles['bold']))
         story.append(Spacer(1, 12))
 
-        # Create a copy of the DataFrame and reset the index
-        categories_df = self.failures.merge(self.tests, 
-                                how='inner', 
-                                right_on=['Name', 'Execution_Datetime'], 
-                                left_on=['Test_Name', 'Execution_Datetime'])
-        
-        categories_df = categories_df[['Test_Name', 'Category', 'Error', 'Details', 'Execution_Datetime']]
-        categories_df.columns = [
-            'Nome do teste',
-            'Categoria',
-            'Error',
-            'Detalhes do erro',
-            'Momento de execução',
-        ]
+        # Merge failures and tests DataFrames and select relevant columns
+        categories_df = (
+            self.tests.merge(
+                self.failures,
+                how='inner',
+                right_on=['Test_Name', 'Execution_Datetime'],
+                left_on=['Name', 'Execution_Datetime'],
+            )[['Test_Name', 'Category', 'Error', 'Details', 'Execution_Datetime', 'Arguments']]
+            .rename(columns={
+                'Test_Name': 'Nome do teste',
+                'Category': 'Categoria',
+                'Error': 'Error',
+                'Details': 'Detalhes do erro',
+                'Execution_Datetime': 'Momento de execução',
+                'Arguments': 'Argumentos',
+            }).drop_duplicates().drop('Argumentos', axis=1)
+        )
 
         # Prepare the detailed data for the table
-        detailed_tests_data = [[Paragraph(str(value), self.styles['normal']) for value in categories_df.columns.tolist()]] 
+        detailed_tests_data = [
+            [Paragraph(str(value), self.styles['bold']) for value in categories_df.columns.tolist()]
+        ]  # Add header
+
         detailed_tests_data.extend(
             [[Paragraph(str(value), self.styles['normal']) for value in row] for row in categories_df.values.tolist()]
         )
 
+
         # Calculate available width after applying margins
-        available_width = self.dim['width'] - 2 * self.dim['margin']  
-        proportions = [0.3, 0.15, 0.15, 0.15, 0.2, 0.1]  
+        available_width = self.dim['width'] - 2 * self.dim['margin']
+
+        # Define column proportions
+        proportions = [0.3, 0.15, 0.15, 0.2, 0.2]
 
         # Calculate column widths based on the available width
         col_widths = [available_width * p for p in proportions]
@@ -242,15 +265,15 @@ class PdfMaker:
         # Create the table
         detailed_table = Table(detailed_tests_data, colWidths=col_widths)
         detailed_table.setStyle(TableStyle([
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),  
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),  
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),  
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ]))
         story.append(detailed_table)
         story.append(Spacer(1, 24))
 
         return story
-
+    
     def create_graphs(self):
         img_width = 500
         img_height = 250
