@@ -80,34 +80,62 @@ class DataPlotter:
     def plot_category_errors_bar(self):
         failures_df = self.failures.copy()
 
-        # PK = Test_Name:Name, Execution_Datetime -
-        categories_df = failures_df.merge(self.tests, 
-                                how='inner', 
-                                right_on=['Name', 'Execution_Datetime'], 
-                                left_on=['Test_Name', 'Execution_Datetime']).drop_duplicates()
+        # Check if failures_df is empty
+        if failures_df.empty:
+            # Create a placeholder plot with a message
+            fig = px.bar(title="Distribuição de erros por categoria")
+            fig.update_layout(
+                annotations=[dict(
+                    text="No errors or failures", 
+                    x=0.5, 
+                    y=0.5, 
+                    font_size=20, 
+                    showarrow=False
+                )],
+                xaxis_title="Categoria",
+                yaxis_title="Contagem Total",
+                margin=dict(l=20, r=20, t=40, b=20)  # Adjust margins
+            )
+        else:
+            # Merge failures_df with self.tests
+            categories_df = failures_df.merge(
+                self.tests,
+                how='inner',
+                right_on=['Name', 'Execution_Datetime'],
+                left_on=['Test_Name', 'Execution_Datetime']
+            ).drop_duplicates()
 
-        # Creating a df With categories as each error
-        categories_df = categories_df.groupby(by=['Category','Error',]).size().unstack('Error').fillna(0).astype(int)
+            # Group by Category and Error, then unstack
+            categories_df = (
+                categories_df.groupby(by=['Category', 'Error'])
+                .size()
+                .unstack('Error')
+                .fillna(0)
+                .astype(int)
+            )
 
-        # Plot the data
-        fig = px.bar(categories_df, 
-                     x=categories_df.index, 
-                     y=categories_df.columns, 
-                     barmode='stack', 
-                     color_discrete_sequence=px.colors.sequential.RdBu)
+            # Plot the data
+            fig = px.bar(
+                categories_df, 
+                x=categories_df.index, 
+                y=categories_df.columns, 
+                barmode='stack', 
+                color_discrete_sequence=px.colors.sequential.RdBu
+            )
 
-        # Customize the plot
-        fig.update_layout(
-            title="Distribuição de erros por categoria",
-            xaxis_title="Categoria",
-            yaxis_title="Contagem Total"
-        )
+            # Customize the plot
+            fig.update_layout(
+                title="Distribuição de erros por categoria",
+                xaxis_title="Categoria",
+                yaxis_title="Contagem Total"
+            )
 
-        # Show the plot
+        # Save the plot to a temporary file
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmpfile:
             fig.write_image(tmpfile.name, format="png", width=800, height=400)
             return tmpfile.name
-
+        
+    
     def categories_failures_passed_rate(self):
         # Group by status and category, then calculate value counts
         total_category = self.tests.groupby(['Category', 'Status']).size().unstack(fill_value=0).astype(int)
